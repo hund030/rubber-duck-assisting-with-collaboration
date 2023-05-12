@@ -1,0 +1,110 @@
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="stylesheet" type="text/css" href="/static/styles/custom.css" />
+    <script
+      src="https://res.cdn.office.net/teams-js/2.9.1/js/MicrosoftTeams.min.js"
+      integrity="sha384-xnsUQ1tUqsrutBJl0vuf4/hufzLFWW8ZhGnhItfpQ0/BtWgM2uw6YT6BQ5YaKBSM"
+      crossorigin="anonymous"
+    ></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+    <title>Microsoft Teams Tab</title>
+  </head>
+
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div>
+      <img
+        src="../static/Rubber_duck_assisting_with_debugging.jpg"
+        alt="Cute Rubber Duck"
+      />
+
+      <h3>Rubber Duck Assisting with Collaboration</h3>
+      <div>
+        <button id="takeBtn">Take the Rubber Duck</button>
+      </div>
+      <div>
+        <button id="returnBtn">Return the Rubber Duck</button>
+      </div>
+      <span id="state">
+        <p>The Rubber Duck is owned by</p>
+        <p id="RubberDuckOwner"></p>
+      </span>
+      <span id="state_2">
+        <p>The Rubber Duck is free</p>
+      </span>
+    </div>
+    <script type="text/javascript">
+      microsoftTeams.app.initialize();
+
+      let currentName = "";
+
+      $(document).ready(function () {
+        $.get("/duck", function (data) {
+          if (data) {
+            $("#state").show();
+            $("#state_2").hide();
+            $("#RubberDuckOwner").text(data);
+            if (data === currentName) {
+              $("#takeBtn").hide();
+              $("#returnBtn").show();
+            } else {
+              $("#takeBtn").hide();
+              $("#returnBtn").hide();
+            }
+          } else {
+            $("#state").hide();
+            $("#state_2").show();
+            $("#takeBtn").show();
+            $("#returnBtn").hide();
+          }
+        });
+
+        // Take the Rubber Duck
+        $("#takeBtn").click(function () {
+          $.ajax({
+            url: "/take",
+            type: "POST",
+            data: { name: currentName },
+            success: function () {
+              $("#state").show();
+              $("#state_2").hide();
+              $("#RubberDuckOwner").text(currentName);
+              $("#takeBtn").hide();
+              $("#returnBtn").show();
+            },
+            error: function (xhr, status, error) {
+              alert("Error: " + error);
+            },
+          });
+        });
+
+        // Return the Rubber Duck
+        $("#returnBtn").click(function () {
+          $.ajax({
+            url: "/return",
+            type: "POST",
+            data: { name: currentName },
+            success: function (result) {
+              $("#state").hide();
+              $("#state_2").show();
+              $("#takeBtn").show();
+              $("#returnBtn").hide();
+            },
+            error: function (xhr, status, error) {
+              alert("Error: " + error);
+            },
+          });
+        });
+
+        microsoftTeams.app.getContext().then(function (context) {
+          currentName = context.user.userPrincipalName;
+          // Hide the loading indicator
+          microsoftTeams.appInitialization.notifySuccess();
+        });
+      });
+    </script>
+  </body>
+</html>
