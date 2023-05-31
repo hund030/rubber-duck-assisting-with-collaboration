@@ -1,11 +1,16 @@
 import * as restify from "restify";
 import * as fs from "fs";
 import send from "send";
+import { getDuck, insertOrReplace } from "./storage";
 
 //Create HTTP server.
 const server = restify.createServer({
-  key: process.env.SSL_KEY_FILE ? fs.readFileSync(process.env.SSL_KEY_FILE) : undefined,
-  certificate: process.env.SSL_CRT_FILE ? fs.readFileSync(process.env.SSL_CRT_FILE) : undefined,
+  key: process.env.SSL_KEY_FILE
+    ? fs.readFileSync(process.env.SSL_KEY_FILE)
+    : undefined,
+  certificate: process.env.SSL_CRT_FILE
+    ? fs.readFileSync(process.env.SSL_CRT_FILE)
+    : undefined,
   formatters: {
     "text/html": (req, res, body) => {
       return body;
@@ -21,7 +26,6 @@ server.get(
     directory: __dirname,
   })
 );
-
 
 server.listen(process.env.port || process.env.PORT || 3333, function () {
   console.log(`\n${server.name} listening to ${server.url}`);
@@ -42,29 +46,49 @@ server.get("/config", (req, res, next) => {
   send(req, __dirname + "/views/configure.html").pipe(res);
 });
 
-let rubberDuck = "";
 server.post("/take", (req, res, next) => {
-  if (rubberDuck) {
-    res.send(409);
-    return;
-  }
-  if (!req?.body?.name) {
+  if (!req?.body?.name || !req?.body?.channelId) {
     res.send(400);
     return;
   }
-  rubberDuck = req.body.name;
-  res.send(200);
+  const name = req.body.name;
+  const channelId = req.body.channelId;
+  getDuck(channelId).then((duck) => {
+    if (duck) {
+      res.send(409);
+      return;
+    }
+    insertOrReplace(name, channelId).then(() => {
+      res.send(200); 
+    });
+  });
 });
 
 server.post("/return", (req, res, next) => {
-  if (rubberDuck !== req?.body?.name) {
-    res.send(409);
+  if (!req?.body?.name || !req?.body?.channelId) {
+    res.send(400);
     return;
   }
-  rubberDuck = "";
-  res.send(200);
+  const name = req.body.name;
+  const channelId = req.body.channelId;
+  getDuck(channelId).then((duck) => {
+    if (duck !== name) {
+      res.send(409);
+      return;
+    }
+    insertOrReplace("", channelId).then(() => {
+      res.send(200);
+    });
+  });
 });
 
-server.get("/duck", (req, res, next) => {
-  res.send(200, rubberDuck);
+server.get("/duck/:channelId", (req, res, next) => {
+  const channelId = req?.params?.channelId;
+  if (!channelId) {
+    res.send(400);
+    return;
+  }
+  getDuck(channelId).then((name) => {
+    res.send(200, { name, channelId });
+  });
 });

@@ -28,56 +28,57 @@
       <div>
         <button id="returnBtn">Return the Rubber Duck</button>
       </div>
-      <span id="state">
+      <span id="owned">
         <p>The Rubber Duck is owned by</p>
-        <p id="RubberDuckOwner"></p>
+        <p id="owner"></p>
       </span>
-      <span id="state_2">
+      <span id="free">
         <p>The Rubber Duck is free</p>
       </span>
+
+      <div>
+        <h3>Follow the steps when updating the BI dashboard</h3>
+        <ol>
+          <li>Take the rubber duck</li>
+          <li>Download the latest .pbix file from BI page</li>
+          <li>Make your changes and publish it</li>
+          <li>Return the rubber duck</li>
+        </ol>
+      </div>
     </div>
     <script type="text/javascript">
-      microsoftTeams.app.initialize();
+      let currentUser = "";
+      let channelId = "";
 
-      let currentName = "";
+      const takeEffect = (name) => {
+        $("#owned").show();
+        $("#free").hide();
+        $("#takeBtn").hide();
+        name === currentUser ? $("#returnBtn").show() : $("#returnBtn").hide();
+        $("#owner").text(name);
+      };
+
+      const returnEffect = (name) => {
+        $("#owned").hide();
+        $("#free").show();
+        $("#takeBtn").show();
+        $("#returnBtn").hide();
+        $("#owner").text("");
+      };
+
+      const errorEffect = (xhr, status, error) => {
+        alert("Error: " + error);
+      };
 
       $(document).ready(function () {
-        $.get("/duck", function (data) {
-          if (data) {
-            $("#state").show();
-            $("#state_2").hide();
-            $("#RubberDuckOwner").text(data);
-            if (data === currentName) {
-              $("#takeBtn").hide();
-              $("#returnBtn").show();
-            } else {
-              $("#takeBtn").hide();
-              $("#returnBtn").hide();
-            }
-          } else {
-            $("#state").hide();
-            $("#state_2").show();
-            $("#takeBtn").show();
-            $("#returnBtn").hide();
-          }
-        });
-
         // Take the Rubber Duck
         $("#takeBtn").click(function () {
           $.ajax({
             url: "/take",
             type: "POST",
-            data: { name: currentName },
-            success: function () {
-              $("#state").show();
-              $("#state_2").hide();
-              $("#RubberDuckOwner").text(currentName);
-              $("#takeBtn").hide();
-              $("#returnBtn").show();
-            },
-            error: function (xhr, status, error) {
-              alert("Error: " + error);
-            },
+            data: { name: currentUser, channelId: channelId },
+            success: () => takeEffect(currentUser),
+            error: errorEffect,
           });
         });
 
@@ -86,23 +87,32 @@
           $.ajax({
             url: "/return",
             type: "POST",
-            data: { name: currentName },
-            success: function (result) {
-              $("#state").hide();
-              $("#state_2").show();
-              $("#takeBtn").show();
-              $("#returnBtn").hide();
-            },
-            error: function (xhr, status, error) {
-              alert("Error: " + error);
-            },
+            data: { name: currentUser, channelId: channelId },
+            success: returnEffect,
+            error: errorEffect,
           });
         });
 
-        microsoftTeams.app.getContext().then(function (context) {
-          currentName = context.user.userPrincipalName;
-          // Hide the loading indicator
-          microsoftTeams.appInitialization.notifySuccess();
+        microsoftTeams.app.initialize().then(() => {
+          microsoftTeams.app.getContext().then(function (context) {
+            console.log(JSON.stringify(context));
+            currentUser = context?.user?.userPrincipalName;
+            channelId =
+              context?.channel?.id ||
+              context?.team?.internalId ||
+              context?.chat?.id;
+
+            $.get("/duck/" + channelId, function (response) {
+              if (response.name) {
+                takeEffect(response.name);
+              } else {
+                returnEffect();
+              }
+            });
+
+            // Hide the loading indicator
+            microsoftTeams.appInitialization.notifySuccess();
+          });
         });
       });
     </script>
